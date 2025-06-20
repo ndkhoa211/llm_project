@@ -1,0 +1,77 @@
+###############################################################################
+#  Python & virtual-envs
+###############################################################################
+__pycache__/
+*.py[cod]                  # compiled byte-code
+*.pyo
+*.pyd
+*.so
+.venv/                      # uv-created venv (rename if you use a different dir)
+.env/
+env/
+venv/
+pip-wheel-metadata/
+*.egg-info/
+build/
+dist/
+
+###############################################################################
+#  Jupyter notebooks
+###############################################################################
+.ipynb_checkpoints/         # global
+data/**/.ipynb_checkpoints/ # nested inside data/
+
+###############################################################################
+#  IDE/editor miscellany
+###############################################################################
+.idea/                      # PyCharm
+.vscode/
+*.swp                       # Vim swap files
+
+###############################################################################
+#  Operating-system cruft
+###############################################################################
+.DS_Store
+Thumbs.db
+
+###############################################################################
+#  Logs & experiment runs
+###############################################################################
+logs/
+*.log
+wandb/
+tensorboard/
+runs/
+
+###############################################################################
+#  Model artefacts & results
+###############################################################################
+results/                    # everything under results/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.weights
+
+###############################################################################
+#  Data — keep only small text datasets you want in source control
+###############################################################################
+# data/**                     # ignore every file under data/
+# !data/datasets/*.txt        # …except curated .txt corpora
+# !data/**/*.md               # …and any markdown notes
+# delete the two “!” rules if you prefer *all* data to stay out of Git
+
+###############################################################################
+#  Tests & coverage (optional)
+###############################################################################
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+pytest_cache/
+
+###############################################################################
+#  Misc (uncomment if you DON’T want these tracked)
+###############################################################################
+# .python-version           # often worth committing
+# uv.lock                   # usually commit so teammates get identical deps
