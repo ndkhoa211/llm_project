@@ -1,4 +1,5 @@
 import tiktoken
+import torch
 
 def text_to_token_ids(text, tokenizer):
   encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
