@@ -1,5 +1,9 @@
 import torch
 import numpy as np
+import sentencepiece as spm
+
+
+
 
 
 def text_to_token_ids(text, tokenizer):
@@ -519,6 +523,98 @@ def find_highest_gradient(model):
             if max_grad is None or max_grad_param > max_grad:
                 max_grad = max_grad_param
     return max_grad
+
+
+
+def model_memory_size(model,
+                      input_dtype=torch.float32):
+    total_params = 0
+    total_grads = 0
+    for param in model.parameters():
+        # Calculate total number of elements per parameter
+        param_size = param.numel()
+        total_params += param_size
+        # Check if gradients are stored for this parameter
+        if param.requires_grad:
+            total_grads += param_size
+
+    # Calculate buffer size (non-parameters that require memory)
+    total_buffers = sum(buf.numel() for buf in model.buffers())
+
+    # Size in bytes = (Number of elements) * (Size of each element in bytes)
+    # We assume parameters and gradients are stored in the same type as input dtype
+    element_size = torch.tensor(0, dtype=input_dtype).element_size()
+    total_memory_bytes = (total_params + total_grads + total_buffers) * element_size
+
+    # Convert bytes to gigabytes
+    total_memory_gb = total_memory_bytes / (1024**3)
+
+    return total_memory_gb
+
+
+
+def text_to_token_ids_llama2(text, tokenizer):
+  ################################### NEW ###################################
+  # encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+  encoded = tokenizer.encode(text)
+  ###########################################################################
+
+  # turn the list of token IDs into tensor with batch dimension
+  encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+  return encoded_tensor
+
+
+
+def load_weights_into_llama(model, param_config, params):
+    model.token_emb.weight = assign(model.token_emb.weight, params["tok_embeddings.weight"])
+
+    for l in range(param_config["n_layers"]):
+
+        # Load attention weights
+        model.transformer_blocks[l].attention.W_query.weight = assign(
+            model.transformer_blocks[l].attention.W_query.weight,
+            params[f"layers.{l}.attention.wq.weight"]
+        )
+        model.transformer_blocks[l].attention.W_key.weight = assign(
+            model.transformer_blocks[l].attention.W_key.weight,
+            params[f"layers.{l}.attention.wk.weight"]
+        )
+        model.transformer_blocks[l].attention.W_value.weight = assign(
+            model.transformer_blocks[l].attention.W_value.weight,
+            params[f"layers.{l}.attention.wv.weight"]
+        )
+        model.transformer_blocks[l].attention.output_projection.weight = assign(
+            model.transformer_blocks[l].attention.output_projection.weight,
+            params[f"layers.{l}.attention.wo.weight"]
+        )
+        model.transformer_blocks[l].norm1.weight = assign(
+            model.transformer_blocks[l].norm1.weight,
+            params[f"layers.{l}.attention_norm.weight"]
+        )
+
+        # Load FeedForward weights
+        model.transformer_blocks[l].feed_forward.fc1.weight = assign(
+            model.transformer_blocks[l].feed_forward.fc1.weight,
+            params[f"layers.{l}.feed_forward.w1.weight"]
+        )
+        # For some reason w2 and w3 are provided in the wrong order in the weights file
+        model.transformer_blocks[l].feed_forward.fc2.weight = assign(
+            model.transformer_blocks[l].feed_forward.fc2.weight,
+            params[f"layers.{l}.feed_forward.w3.weight"]
+        )
+        model.transformer_blocks[l].feed_forward.fc3.weight = assign(
+            model.transformer_blocks[l].feed_forward.fc3.weight,
+            params[f"layers.{l}.feed_forward.w2.weight"]
+        )
+        model.transformer_blocks[l].norm2.weight = assign(
+            model.transformer_blocks[l].norm2.weight,
+            params[f"layers.{l}.ffn_norm.weight"]
+        )
+
+    # Load output layer weights
+    model.final_norm.weight = assign(model.final_norm.weight, params["norm.weight"])
+    model.out_head.weight = assign(model.out_head.weight, params["output.weight"])
+
 
 
 

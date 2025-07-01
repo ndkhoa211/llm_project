@@ -75,3 +75,6 @@ pytest_cache/
 ###############################################################################
 # .python-version           # often worth committing
 # uv.lock                   # usually commit so teammates get identical deps
+
+
+.env
