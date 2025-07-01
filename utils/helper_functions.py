@@ -1,6 +1,133 @@
 import torch
 import numpy as np
 
+
+def text_to_token_ids(text, tokenizer):
+  encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+
+  # turn the list of token IDs into tensor with batch dimension
+  encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+  return encoded_tensor
+
+def token_ids_to_text(encoded_tensor, tokenizer):
+  # turn tensor without batch dimension to list
+  token_ids = encoded_tensor.squeeze(0).tolist()
+  text = tokenizer.decode(token_ids)
+  return text
+
+
+
+def calc_loss_batch(input_batch,
+                    target_batch,
+                    model,
+                    device):
+  input_batch = input_batch.to(device)
+  target_batch = target_batch.to(device)
+
+  logits = model(input_batch)
+  loss = torch.nn.functional.cross_entropy(logits.flatten(0, 1),
+                                           target_batch.flatten())
+  return loss
+
+
+def calc_loss_loader(dataloader,
+                     model,
+                     device,
+                     num_batches=None):
+  total_loss = 0.
+  if len(dataloader) == 0:
+    return float("nan")
+  elif num_batches is None:
+    num_batches = len(dataloader)
+  else:
+    # reduce the number of batches to match the total number of batches in the data loader
+    # if num_batches exceeds the number of batches in the data loader
+    num_batches = min(num_batches, len(dataloader))
+  for i, (input_batch, target_batch) in enumerate(dataloader):
+    if i < num_batches:
+      loss = calc_loss_batch(input_batch,
+                             target_batch,
+                             model,
+                             device)
+      total_loss += loss.item()
+    else:
+      break
+  return total_loss / num_batches
+
+
+
+def generate_and_print_sample(model,
+                              tokenizer,
+                              device,
+                              start_context):
+  # set model to evaluation mode
+  model.eval()
+  context_size = model.position_emb.weight.shape[0]
+  encoded = text_to_token_ids(start_context, tokenizer).to(device)
+  with torch.no_grad():
+    token_ids = generate_text_simple(model=model,
+                                     input_batch=encoded,
+                                     max_new_tokens=50,
+                                     context_size=context_size)
+    decoded_text = token_ids_to_text(token_ids, tokenizer)
+    print(decoded_text.replace("\n", " ")) # compact print format
+  # set model back to training mode
+  model.train()
+
+
+
+
+def generate_text(model,
+                  input_batch,
+                  max_new_tokens,
+                  context_size,
+                  temperature=0.0,
+                  top_k=None,
+                  eos_id=None):
+  for _ in range(max_new_tokens):
+    # crop current context if it exceeds the supported context_size
+    crop_input_batch = input_batch[:, -context_size:]
+
+    # predict next token
+    with torch.no_grad():
+      logits = model(crop_input_batch)
+
+    # consider only logits of the last token
+    logits = logits[:, -1, :] # (batch, n_tokens, vocab_size) -> (batch, vocab_size)
+
+    # NEW: filter logits with top_k sampling
+    if top_k is not None:
+      # keep only top_k values
+      top_logits, _ = torch.topk(logits, top_k)
+      min_val = top_logits[:, -1] # min value among the top_k values
+      # all values other than top_k values will be set to -inf
+      logits = torch.where(logits < min_val,
+                           torch.tensor(-torch.inf).to(logits.device),
+                           logits)
+
+    # NEW: temperature scaling
+    if temperature > 0.0:
+      logits = logits / temperature
+
+      probas = torch.softmax(logits, dim=-1) # (batch, vocab_size)
+      predicted_tokens = torch.multinomial(probas, num_samples=1) # (batch, 1)
+
+    else: # same as before
+      #probas = torch.softmax(logits, dim=-1) # (batch, vocab_size)
+      predicted_tokens = torch.argmax(logits, dim=-1, keepdim=True) # (batch, 1)
+
+    if predicted_tokens == eos_id:  # Stop generating early if end-of-sequence token is encountered and eos_id is specified
+            break
+
+    # update input_batch (append predicted tokens to the sequences)
+    input_batch = torch.cat([input_batch, predicted_tokens], dim=1) # [batch, num_tokens+1]
+
+  return input_batch
+
+
+
+
+
 def generate_text_simple(model,
                          input_batch,  # [batch, num_tokens]
                          max_new_tokens,  # numbers of new tokens to be predicted
@@ -111,42 +238,7 @@ def generate_text_advanced(model,
     return input_batch
 
 
-def calc_loss_batch(input_batch,
-                    target_batch,
-                    model,
-                    device):
-  input_batch = input_batch.to(device)
-  target_batch = target_batch.to(device)
 
-  logits = model(input_batch)
-  loss = torch.nn.functional.cross_entropy(logits.flatten(0, 1),
-                                           target_batch.flatten())
-  return loss
-
-
-def calc_loss_loader(dataloader,
-                     model,
-                     device,
-                     num_batches=None):
-  total_loss = 0.
-  if len(dataloader) == 0:
-    return float("nan")
-  elif num_batches is None:
-    num_batches = len(dataloader)
-  else:
-    # reduce the number of batches to match the total number of batches in the data loader
-    # if num_batches exceeds the number of batches in the data loader
-    num_batches = min(num_batches, len(dataloader))
-  for i, (input_batch, target_batch) in enumerate(dataloader):
-    if i < num_batches:
-      loss = calc_loss_batch(input_batch,
-                             target_batch,
-                             model,
-                             device)
-      total_loss += loss.item()
-    else:
-      break
-  return total_loss / num_batches
 
 
 def assign(left, right):
