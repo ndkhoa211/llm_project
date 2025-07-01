@@ -565,57 +565,144 @@ def text_to_token_ids_llama2(text, tokenizer):
 
 
 
-def load_weights_into_llama(model, param_config, params):
-    model.token_emb.weight = assign(model.token_emb.weight, params["tok_embeddings.weight"])
+def assign_llama(left, right, tensor_name="unknown"):
+    if left.shape != right.shape:
+        raise ValueError(f"Shape mismatch in tensor '{tensor_name}'. Left: {left.shape}, Right: {right.shape}")
+
+    if isinstance(right, torch.Tensor):
+        return torch.nn.Parameter(right.clone().detach())
+    else:
+        return torch.nn.Parameter(torch.tensor(right))
+
+
+
+def load_weights_into_llama2(model, param_config, params):
+    model.token_emb.weight = assign_llama(model.token_emb.weight, params["tok_embeddings.weight"])
 
     for l in range(param_config["n_layers"]):
 
         # Load attention weights
-        model.transformer_blocks[l].attention.W_query.weight = assign(
+        model.transformer_blocks[l].attention.W_query.weight = assign_llama(
             model.transformer_blocks[l].attention.W_query.weight,
             params[f"layers.{l}.attention.wq.weight"]
         )
-        model.transformer_blocks[l].attention.W_key.weight = assign(
+        model.transformer_blocks[l].attention.W_key.weight = assign_llama(
             model.transformer_blocks[l].attention.W_key.weight,
             params[f"layers.{l}.attention.wk.weight"]
         )
-        model.transformer_blocks[l].attention.W_value.weight = assign(
+        model.transformer_blocks[l].attention.W_value.weight = assign_llama(
             model.transformer_blocks[l].attention.W_value.weight,
             params[f"layers.{l}.attention.wv.weight"]
         )
-        model.transformer_blocks[l].attention.output_projection.weight = assign(
+        model.transformer_blocks[l].attention.output_projection.weight = assign_llama(
             model.transformer_blocks[l].attention.output_projection.weight,
             params[f"layers.{l}.attention.wo.weight"]
         )
-        model.transformer_blocks[l].norm1.weight = assign(
+        model.transformer_blocks[l].norm1.weight = assign_llama(
             model.transformer_blocks[l].norm1.weight,
             params[f"layers.{l}.attention_norm.weight"]
         )
 
         # Load FeedForward weights
-        model.transformer_blocks[l].feed_forward.fc1.weight = assign(
+        model.transformer_blocks[l].feed_forward.fc1.weight = assign_llama(
             model.transformer_blocks[l].feed_forward.fc1.weight,
             params[f"layers.{l}.feed_forward.w1.weight"]
         )
         # For some reason w2 and w3 are provided in the wrong order in the weights file
-        model.transformer_blocks[l].feed_forward.fc2.weight = assign(
+        model.transformer_blocks[l].feed_forward.fc2.weight = assign_llama(
             model.transformer_blocks[l].feed_forward.fc2.weight,
             params[f"layers.{l}.feed_forward.w3.weight"]
         )
-        model.transformer_blocks[l].feed_forward.fc3.weight = assign(
+        model.transformer_blocks[l].feed_forward.fc3.weight = assign_llama(
             model.transformer_blocks[l].feed_forward.fc3.weight,
             params[f"layers.{l}.feed_forward.w2.weight"]
         )
-        model.transformer_blocks[l].norm2.weight = assign(
+        model.transformer_blocks[l].norm2.weight = assign_llama(
             model.transformer_blocks[l].norm2.weight,
             params[f"layers.{l}.ffn_norm.weight"]
         )
 
     # Load output layer weights
-    model.final_norm.weight = assign(model.final_norm.weight, params["norm.weight"])
-    model.out_head.weight = assign(model.out_head.weight, params["output.weight"])
+    model.final_norm.weight = assign_llama(model.final_norm.weight, params["norm.weight"])
+    model.out_head.weight = assign_llama(model.out_head.weight, params["output.weight"])
 
 
+
+def load_weights_into_llama3(model, param_config, params):
+    model.token_emb.weight = assign_llama(model.token_emb.weight, params["model.embed_tokens.weight"], "model.embed_tokens.weight")
+
+    for l in range(param_config["n_layers"]):
+
+        # Load attention weights
+        model.transformer_blocks[l].attention.W_query.weight = assign_llama(
+            model.transformer_blocks[l].attention.W_query.weight,
+            params[f"model.layers.{l}.self_attn.q_proj.weight"],
+            f"model.layers.{l}.self_attn.q_proj.weight"
+        )
+        model.transformer_blocks[l].attention.W_key.weight = assign_llama(
+            model.transformer_blocks[l].attention.W_key.weight,
+            params[f"model.layers.{l}.self_attn.k_proj.weight"],
+            f"model.layers.{l}.self_attn.k_proj.weight"
+        )
+        model.transformer_blocks[l].attention.W_value.weight = assign_llama(
+            model.transformer_blocks[l].attention.W_value.weight,
+            params[f"model.layers.{l}.self_attn.v_proj.weight"],
+            f"model.layers.{l}.self_attn.v_proj.weight"
+        )
+        model.transformer_blocks[l].attention.output_projection.weight = assign_llama(
+            model.transformer_blocks[l].attention.output_projection.weight,
+            params[f"model.layers.{l}.self_attn.o_proj.weight"],
+            f"model.layers.{l}.self_attn.o_proj.weight"
+        )
+        model.transformer_blocks[l].norm1.weight = assign_llama(
+            model.transformer_blocks[l].norm1.weight,
+            params[f"model.layers.{l}.input_layernorm.weight"],
+            f"model.layers.{l}.input_layernorm.weight"
+        )
+
+        # Load FeedForward weights
+        model.transformer_blocks[l].feed_forward.fc1.weight = assign_llama(
+            model.transformer_blocks[l].feed_forward.fc1.weight,
+            params[f"model.layers.{l}.mlp.gate_proj.weight"],
+            f"model.layers.{l}.mlp.gate_proj.weight"
+        )
+        model.transformer_blocks[l].feed_forward.fc2.weight = assign_llama(
+            model.transformer_blocks[l].feed_forward.fc2.weight,
+            params[f"model.layers.{l}.mlp.up_proj.weight"],
+            f"model.layers.{l}.mlp.up_proj.weight"
+        )
+        model.transformer_blocks[l].feed_forward.fc3.weight = assign_llama(
+            model.transformer_blocks[l].feed_forward.fc3.weight,
+            params[f"model.layers.{l}.mlp.down_proj.weight"],
+            f"model.layers.{l}.mlp.down_proj.weight"
+        )
+        model.transformer_blocks[l].norm2.weight = assign_llama(
+            model.transformer_blocks[l].norm2.weight,
+            params[f"model.layers.{l}.post_attention_layernorm.weight"],
+            f"model.layers.{l}.post_attention_layernorm.weight"
+        )
+
+    # Load output layer weights
+    model.final_norm.weight = assign_llama(model.final_norm.weight, params["model.norm.weight"], "model.norm.weight")
+
+    if "lm_head.weight" in params.keys():
+        model.out_head.weight = assign_llama(model.out_head.weight, params["lm_head.weight"], "lm_head.weight")
+    else:
+        model.out_head.weight = assign_llama(model.out_head.weight, params["model.embed_tokens.weight"], "model.embed_tokens.weight")
+        print("Model uses weight tying.")
+
+
+
+def clean_text(text, header_end="assistant<|end_header_id|>\n\n"):
+    # Find the index of the first occurrence of "<|end_header_id|>"
+    index = text.find(header_end)
+
+    if index != -1:
+        # Return the substring starting after "<|end_header_id|>"
+        return text[index + len(header_end):].strip()  # Strip removes leading/trailing whitespace
+    else:
+        # If the token is not found, return the original text
+        return text
 
 
 
