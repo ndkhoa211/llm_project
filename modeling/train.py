@@ -1,4 +1,6 @@
 import torch
+import math
+
 from utils.helper_functions import  (calc_loss_batch,
                                      calc_loss_loader,
                                      generate_and_print_sample,
@@ -165,3 +167,99 @@ def evaluate_classification_model(model,
   # set model back to training mode
   model.train()
   return train_loss, val_loss
+
+
+ORIG_BOOK_VERSION = False
+def train_model(model,
+                train_loader,
+                val_loader,
+                optimizer,
+                device,
+                n_epochs,
+                eval_freq,
+                eval_iter,
+                start_context,
+                tokenizer,
+                warmup_steps,
+                initial_lr=3e-05,
+                min_lr=1e-6):
+
+  train_losses, val_losses = [], []
+  track_tokens_seen, track_lrs = [], []
+
+  token_seen = 0
+  global_step = -1
+
+  # retrieve the maximum/peak learning rate from the optimizer
+  peak_lr = optimizer.param_groups[0]["lr"]
+
+  # calculate the total number of iterations in the training process
+  total_training_steps = len(train_loader) * n_epochs
+
+  # calculate the learning rate increment during the warmup phase
+  lr_increment = (peak_lr - initial_lr) / warmup_steps
+
+  for epoch in range(n_epochs):
+    model.train()
+    for input_batch, target_batch in train_loader:
+      optimizer.zero_grad()
+      global_step += 1
+
+      # adjust the learning rate based on the current phase (warmup or cosine)
+      if global_step < warmup_steps:
+        lr = initial_lr + global_step * lr_increment
+      else:
+        # cosine annealing after warmup
+        progress = ((global_step - warmup_steps) /
+                    (total_training_steps - warmup_steps))
+        lr = (min_lr +
+         (peak_lr - min_lr) * 0.5 * (1 + math.cos(math.pi * progress)))
+
+      # apply the calculated learning rate to the optimizer
+      for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+      track_lrs.append(lr) # store the current learning rate
+
+      # calculate and backpropagate the loss
+      loss = calc_loss_batch(input_batch,
+                             target_batch,
+                             model,
+                             device)
+      loss.backward()
+
+      # apply gradient clipping after the warmup phase to avoid exploding gradients
+      if ORIG_BOOK_VERSION:
+        if global_step > warmup_steps:
+          torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+      else:
+        # the book originally used global_step > warmup_steps, which led to a skipped clipping step after warmup
+        if global_step >= warmup_steps:
+          torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+      optimizer.step()
+      token_seen += input_batch.numel()
+
+      # periodically evaluate the model on the training and validation sets
+      if global_step % eval_freq == 0:
+        train_loss, val_loss = evaluate_model(model,
+                                              train_loader,
+                                              val_loader,
+                                              device,
+                                              eval_iter)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        track_tokens_seen.append(token_seen)
+        # print the current losses
+        print(f"Ep {epoch+1} (Iter {global_step:06d}): "
+                      f"Train loss {train_loss:.3f}, "
+                      f"Val loss {val_loss:.3f}")
+
+    # generate and print a sample from the model to monitor progess
+    generate_and_print_sample(
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        start_context=start_context
+    )
+
+  return train_losses, val_losses, track_tokens_seen, track_lrs

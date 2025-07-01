@@ -509,3 +509,17 @@ def custom_collate_fn(batch,
   return inputs_tensor, targets_tensor
 
 
+
+def find_highest_gradient(model):
+    max_grad = None
+    for param in model.parameters():
+        if param.grad is not None:
+            grad_values = param.grad.data.flatten()
+            max_grad_param = grad_values.max()
+            if max_grad is None or max_grad_param > max_grad:
+                max_grad = max_grad_param
+    return max_grad
+
+
+
+
