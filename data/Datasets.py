@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset
-
-
+from utils.helper_functions import format_input
+import pandas as pd
 
 class GPT2DatasetV1(Dataset):
   def __init__(self,
@@ -30,7 +30,6 @@ class GPT2DatasetV1(Dataset):
   # return the (input vector, target vector) pair
   def __getitem__(self, id):
     return self.input_id_vectors[id], self.target_id_vectors[id]
-
 
 
 
@@ -72,3 +71,24 @@ class SpamDataset(Dataset):
 
   def _longest_encoded_length(self):
     return max(len(encoded_text) for encoded_text in self.encoded_texts)
+
+
+
+
+class InstructionDataset(Dataset):
+  def __init__(self, data, tokenizer):
+    self.data = data
+
+    # pre-tokenizer texts
+    self.encoded_texts = []
+    for entry in data:
+      instruction_plus_input = format_input(entry)
+      response_text = f"\n\n### Response:\n{entry['output']}"
+      full_text = instruction_plus_input + response_text
+      self.encoded_texts.append(tokenizer.encode(full_text))
+
+  def __getitem__(self, index):
+    return self.encoded_texts[index]
+
+  def __len__(self):
+    return len(self.data)

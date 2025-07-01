@@ -173,3 +173,23 @@ def download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path):
     original_file_path = Path(extracted_path) / "SMSSpamCollection"
     os.rename(original_file_path, data_file_path)
     print(f"File downloaded and saved as {data_file_path}")
+
+
+
+def download_and_load_file(file_path, url):
+
+    if not os.path.exists(file_path):
+        with urllib.request.urlopen(url) as response:
+            text_data = response.read().decode("utf-8")
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(text_data)
+
+    # The book originally contained this unnecessary "else" clause:
+    #else:
+    #    with open(file_path, "r", encoding="utf-8") as file:
+    #        text_data = file.read()
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    return data
