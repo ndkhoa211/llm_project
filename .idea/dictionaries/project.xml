@@ -2,6 +2,7 @@
   <dictionary name="project">
     <words>
       <w>cumsum</w>
+      <w>kaiming</w>
       <w>probas</w>
     </words>
   </dictionary>
