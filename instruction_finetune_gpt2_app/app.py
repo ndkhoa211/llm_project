@@ -3,6 +3,8 @@ import gradio as gr
 import time
 import torch
 import tiktoken
+from huggingface_hub import hf_hub_download
+
 
 from model import (BASE_CONFIG,
                    GPT2Model,
@@ -18,7 +20,14 @@ from model import (BASE_CONFIG,
 bpe_tokenizer = tiktoken.get_encoding("gpt2")
 model = GPT2Model(BASE_CONFIG)
 replace_linear_with_lora(model, rank=16, alpha=16)
-model.load_state_dict(torch.load("instruction_finetune_gpt2.pth", map_location="cpu", weights_only=True))
+#model.load_state_dict(torch.load("instruction_finetune_gpt2.pth", map_location="cpu", weights_only=True))
+repo_id = "ndk211/intruction_finetune_gpt2_774m"
+filename = "instruction_finetune_gpt2.pth"
+local_path = hf_hub_download(repo_id=repo_id, filename=filename)
+
+state_dict = torch.load(local_path, map_location="cpu")
+model.load_state_dict(state_dict, strict=False)
+
 model = model.to("cpu")
 model.eval()
 
