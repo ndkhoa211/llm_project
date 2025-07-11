@@ -1,8 +1,8 @@
 # 🦙 LLM Project
 
-*In this project, I build a GPT-2 model from scratch with the help of Pytorch.
-Then I finetune the model loaded with OpenAI weights for downstream tasks such as classification and instruction, 
-and deploy them with Gradio.*
+*In this project, I built a GPT-2 model from scratch with the help of Pytorch.
+Then I finetuned the model loaded with OpenAI weights for downstream tasks such as classification and instruction, 
+and deployed them with Gradio.*
 
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.7-orange?logo=pytorch)
