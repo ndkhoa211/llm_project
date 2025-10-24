@@ -7,7 +7,7 @@ and deployed them with Gradio.*
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.7-orange?logo=pytorch)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
-[![🤗 Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Spaces-ndkhoa211-yellow?logo=huggingface)](https://huggingface.co/ndk211)
+[![🤗 Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Spaces-ndk211-yellow?logo=huggingface)](https://huggingface.co/ndk211)
 ---
 
 ## Table of Contents
